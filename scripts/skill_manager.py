@@ -1563,6 +1563,84 @@ def cmd_export(output_dir: str = None):
     install_ps1 = out / "install_all.ps1"
     install_ps1.write_text("\n".join(ps1_lines) + "\n", encoding="utf-8")
 
+    # ── 生成 Mac/Linux 安装脚本 (install_all.sh) ──
+    sh_lines = [
+        "#!/usr/bin/env bash",
+        "# Skill Manager - 一键安装脚本 (macOS / Linux)",
+        "# 生成时间: " + __import__('datetime').datetime.now().isoformat(),
+        "# 用法: bash install_all.sh",
+        "set -e",
+        "",
+        'echo "========================================"',
+        'echo "  Skill Manager - 一键安装 40 个科研 Skill"',
+        'echo "  (macOS / Linux)"',
+        'echo "========================================"',
+        'echo ""',
+        "",
+        '# ===== 第 1 步: 安装 skill-manager ====="',
+        'echo "[1/7] 安装 skill-manager..."',
+        'SRC="$(dirname "$0")/skill-manager"',
+        'DST1="$HOME/.agents/skills/skill-manager"',
+        'DST2="$HOME/.claude/skills/skill-manager"',
+        'if [ -d "$SRC" ]; then',
+        '    mkdir -p "$(dirname "$DST1")" "$(dirname "$DST2")"',
+        '    cp -R "$SRC" "$DST1"',
+        '    cp -R "$SRC" "$DST2" 2>/dev/null || true',
+        '    echo "  skill-manager 已安装"',
+        'else',
+        '    echo "  skill-manager 文件夹未找到，请确保与本脚本同级"',
+        '    exit 1',
+        'fi',
+        'echo ""',
+    ]
+
+    step = 2
+    for repo, names in repos.items():
+        sh_lines.append(f"# ===== 第 {step} 步 =====")
+        sh_lines.append(f'echo "[{step}/7] 安装 {repo.split("/")[-1].replace(".git","")} ..."')
+        for name in names:
+            sh_lines.append(f'echo "  -> {name}"')
+        sh_lines.append(f'npx skills add {repo} --skill \"{" ".join(names)}\" -y')
+        sh_lines.append(f'echo "  完成!"')
+        sh_lines.append("")
+        step += 1
+
+    if paperspine:
+        sh_lines.extend([
+            f"# ===== 第 {step} 步: PaperSpine =====",
+            f'echo "[{step}/7] 安装 PaperSpine..."',
+            'if [ ! -d "$HOME/PaperSpine" ]; then',
+            '    git clone https://github.com/WUBING2023/PaperSpine.git "$HOME/PaperSpine"',
+            'fi',
+            'cd "$HOME/PaperSpine"',
+            'git pull',
+            'bash install.sh all --clean-legacy',
+            'echo "  完成!"',
+            'echo ""',
+        ])
+        step += 1
+
+    if claude_plugin:
+        sh_lines.extend([
+            f"# ===== 第 {step} 步: Academic Research Skills (Claude Code) =====",
+            f'echo "[{step}/7] Claude Code 插件需手动安装:"',
+            'echo "  在 Claude Code 中运行: /plugin install academic-research-skills@academic-research-skills"',
+            'echo ""',
+        ])
+
+    sh_lines.extend([
+        "# ===== 完成 =====",
+        'echo ""',
+        'echo "======================================== "',
+        'echo "  全部安装完成!"',
+        'echo "  运行: python ~/.agents/skills/skill-manager/scripts/skill_manager.py list"',
+        'echo "======================================== "',
+    ])
+
+    install_sh = out / "install_all.sh"
+    install_sh.write_text("\n".join(sh_lines) + "\n", encoding="utf-8")
+    install_sh.chmod(0o755)
+
     # 复制 skill-manager 自身到导出目录
     manager_src = HOME / ".agents" / "skills" / "skill-manager"
     manager_dst = out / "skill-manager"
@@ -1618,6 +1696,52 @@ def cmd_export(output_dir: str = None):
     setup_ps1 = out / "setup.ps1"
     setup_ps1.write_text("\n".join(setup_lines) + "\n", encoding="utf-8")
 
+    # ── 生成 Mac/Linux 总入口 (setup.sh) ──
+    setup_sh_lines = [
+        "#!/usr/bin/env bash",
+        "# Skill Manager - 总安装入口 (macOS / Linux)",
+        "# 用法: bash setup.sh",
+        "set -e",
+        'ROOT="$(cd "$(dirname "$0")" && pwd)"',
+        "",
+        "# Step 1: 安装 skill-manager 到本地",
+        'echo "========================================"',
+        'echo "  Step 1: 安装 Skill Manager 本身"',
+        'echo "========================================"',
+        'SRC="$ROOT/skill-manager"',
+        'DST1="$HOME/.agents/skills/skill-manager"',
+        'DST2="$HOME/.claude/skills/skill-manager"',
+        'if [ ! -d "$SRC" ]; then',
+        '    echo "错误: 未找到 skill-manager 文件夹"',
+        '    exit 1',
+        'fi',
+        'mkdir -p "$(dirname "$DST1")" "$(dirname "$DST2")"',
+        'cp -R "$SRC" "$DST1"',
+        'cp -R "$SRC" "$DST2" 2>/dev/null || true',
+        'echo "  skill-manager 已安装"',
+        "",
+        "# Step 2: 运行批量安装",
+        'echo ""',
+        'echo "========================================"',
+        'echo "  Step 2: 安装 40 个科研 Skill"',
+        'echo "========================================"',
+        'if [ -f "$ROOT/install_all.sh" ]; then',
+        '    bash "$ROOT/install_all.sh"',
+        'else',
+        '    echo "错误: 未找到 install_all.sh"',
+        'fi',
+        "",
+        "# 完成",
+        'echo ""',
+        'echo "========================================"',
+        'echo "  全部完成！"',
+        'echo "  验证: python ~/.agents/skills/skill-manager/scripts/skill_manager.py list"',
+        'echo "========================================"',
+    ]
+    setup_sh = out / "setup.sh"
+    setup_sh.write_text("\n".join(setup_sh_lines) + "\n", encoding="utf-8")
+    setup_sh.chmod(0o755)
+
     # 生成 JSON 配置快照
     snapshot = {
         "version": "1.0",
@@ -1635,15 +1759,14 @@ def cmd_export(output_dir: str = None):
     print(f"  配置导出完成")
     print(f"{'='*60}")
     print(f"  📁 目录: {output_dir}")
-    print(f"  📄 setup.ps1          — 🔥 总入口（同学只需跑这个）")
-    print(f"  📄 install_all.ps1    — 批量安装脚本")
-    print(f"  📄 skill_config.json  — 配置快照")
-    print(f"  📁 skill-manager/     — Manager 自身")
+    print(f"  📄 setup.ps1 / setup.sh   — 🔥 总入口（Windows/Mac 各取所需）")
+    print(f"  📄 install_all.ps1 / .sh  — 批量安装脚本")
+    print(f"  📄 skill_config.json      — 配置快照")
+    print(f"  📁 skill-manager/         — Manager 自身")
     print(f"\n  🚀 同学使用方法：")
-    print(f"  1. 把 {output_dir} 整个文件夹发给同学")
-    print(f"  2. 同学右键 setup.ps1 → 用 PowerShell 运行")
-    print(f"  3. 等待 5-10 分钟，全部自动完成")
-    print(f"  4. 验证: python ~\\.agents\\skills\\skill-manager\\scripts\\skill_manager.py list")
+    print(f"  Windows: 右键 setup.ps1 → 用 PowerShell 运行")
+    print(f"  Mac:     cd 到文件夹 → bash setup.sh")
+    print(f"  等待 5-10 分钟，全部自动完成")
     print()
 
 

@@ -13,16 +13,23 @@
 
 ### 同学/用户（只需 3 步）
 
+**Windows:**
 ```powershell
-# 1. 下载本仓库
 git clone https://github.com/stbabaocha/skill-manager.git
 cd skill-manager
-
-# 2. 运行安装
 powershell -ExecutionPolicy Bypass -File setup.ps1
+```
 
-# 3. 验证
-python ~\.agents\skills\skill-manager\scripts\skill_manager.py list
+**Mac / Linux:**
+```bash
+git clone https://github.com/stbabaocha/skill-manager.git
+cd skill-manager
+bash setup.sh
+```
+
+**验证:**
+```bash
+python ~/.agents/skills/skill-manager/scripts/skill_manager.py list
 ```
 
 > 等待 5-10 分钟，40 个科研 skill 自动安装完成。
