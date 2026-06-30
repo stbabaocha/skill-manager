@@ -15,7 +15,7 @@
 
 ```powershell
 # 1. 下载本仓库
-git clone https://github.com/YOUR_USERNAME/skill-manager.git
+git clone https://github.com/stbabaocha/skill-manager.git
 cd skill-manager
 
 # 2. 运行安装
