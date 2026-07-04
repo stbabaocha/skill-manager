@@ -1,9 +1,11 @@
 # Skill Manager — 科研 Agent Skill 统一管理器
 
-[![Skills](https://img.shields.io/badge/skills-40-blue)](https://github.com)
-[![Platforms](https://img.shields.io/badge/platforms-7-green)]()
+[![Skills](https://img.shields.io/badge/skills-40-blue)](https://github.com/stbabaocha/skill-manager)
+[![Platforms](https://img.shields.io/badge/platforms-7-green)](https://github.com/stbabaocha/skill-manager)
+[![Python](https://img.shields.io/badge/python-≥3.9-blue)](https://python.org)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-**一键安装 · 统一管理 · 多角度交叉验证 · 智能工作流推荐**
+**一键安装 · 统一管理 · 智能工作流推荐 · 支持 7 个 AI 平台**
 
 管理 GitHub Copilot、Claude Code、Cline、Codex 等平台上 **40 个科研 Agent Skill** 的命令行工具。
 
@@ -11,9 +13,9 @@
 
 ## 🚀 快速开始
 
-### 🤖 AI 一键安装（推荐）
+### 🤖 AI 一键安装（推荐 · 零基础可用）
 
-**把下面这段话复制粘贴到任意 AI 编程助手**（Copilot / Claude Code / Cline / Codex / Gemini CLI / Continue 均可），AI 会自动完成一切：
+**把下面这段话复制粘贴到任意 AI 编程助手**（Copilot / Claude Code / Cline / Codex 均可），AI 会自动完成一切——包括安装缺失的依赖：
 
 ---
 
@@ -23,14 +25,14 @@
 > 2. 进入目录并运行安装脚本：
 >    - **Windows**：`powershell -ExecutionPolicy Bypass -File setup.ps1`
 >    - **macOS / Linux**：`bash setup.sh`
-> 3. **重要**：如果脚本报 `[DEP_CHECK] ... MISSING` 错误，请根据 `[DEP_ACTION]` 的提示自动安装缺失的依赖（git/node/npm/python），然后重新运行安装脚本
-> 4. 安装完成后运行验证：`python ~/.agents/skills/skill-manager/scripts/skill_manager.py list`
+> 3. 脚本会自动检测并安装缺失的依赖（Git/Node.js/Python），Mac 会自动安装 Homebrew
+> 4. 安装完成后运行验证：`python ~/.agents/skills/skill-manager/scripts/skill_manager.py list --unique`
 
 ---
 
-> 💡 **上面这段是写给你的 AI 助手看的，直接发过去即可。** AI 会自动检测操作系统、检查依赖、安装缺失项、完成全部 40 个 skill 安装。全程无需手动操作。
+> 💡 **上面这段是写给你的 AI 助手看的，直接发过去即可。** 全程自动，无需手动操作。
 
-### 🖥️ 手动安装（终端）
+### 🖥️ 手动安装
 
 **Windows:**
 ```powershell
@@ -48,17 +50,10 @@ bash setup.sh
 
 **验证:**
 ```bash
-python ~/.agents/skills/skill-manager/scripts/skill_manager.py list
+python ~/.agents/skills/skill-manager/scripts/skill_manager.py list --unique
 ```
 
-> ⏱️ 等待 5-10 分钟，40 个科研 skill 自动安装完成。依赖缺失时脚本会自动提示 `[DEP_ACTION]`。
-
-```bash
-# 重新导出最新配置（含安装脚本）
-python skill_manager.py export
-
-# 把导出的文件夹分享给同学
-```
+> ⏱️ 首次安装约 5-10 分钟。脚本会自动安装缺失依赖（Homebrew / Git / Node.js / Python）。
 
 ---
 
@@ -77,37 +72,58 @@ python skill_manager.py export
 
 ---
 
-## 🛠️ Manager 命令
+## 🛠️ 命令
 
 ```bash
-python skill_manager.py list           # 列出所有已安装 skill
-python skill_manager.py usage          # 调用速查表
-python skill_manager.py info <名字>     # 查看 skill 详细说明书
-python skill_manager.py agents <名字>   # 查看 skill 内部 Agent
-python skill_manager.py doctor         # 健康诊断
-python skill_manager.py compare <场景>  # 多角度交叉验证
-python skill_manager.py advise <需求>   # 智能工作流推荐
-python skill_manager.py wizard <类型>   # 项目向导 (paper/patent/grant)
-python skill_manager.py export         # 导出安装包
-python skill_manager.py search <关键词> # 搜索新 skill
-python skill_manager.py install <repo> # 安装新 skill
-python skill_manager.py update -y      # 一键更新所有 skill
-python skill_manager.py remove <名字>   # 删除 skill
+# 基础管理
+python skill_manager.py list [--unique]   # 列出所有已安装 skill（--unique 去重）
+python skill_manager.py list --json       # JSON 格式输出
+python skill_manager.py where <名字>      # 查找 skill 安装位置
+python skill_manager.py info <名字>       # 查看 skill 详细信息
+python skill_manager.py usage             # 调用方式速查表
+python skill_manager.py doctor            # 健康诊断
+python skill_manager.py duplicates        # 列出跨平台重复
+
+# 智能推荐 ⭐
+python skill_manager.py recommend <需求>  # 根据你的需求推荐 skill 工作流
+
+# 跨平台操作
+python skill_manager.py sync --from agents --to claude [-y] [--force]  # 同步
+python skill_manager.py sync-all [-y] [--force]   # 一键同步到所有平台
+python skill_manager.py remove <名字> [-y]         # 删除 skill
+```
+
+### 智能推荐示例
+
+```bash
+python skill_manager.py recommend 我想写一篇论文
+# → 推荐：文献检索 → 撰写 → 配图 → 润色 → 预审 完整工作流
+
+python skill_manager.py recommend 写基金
+# → 推荐：立项依据 → 文献综述 → 研究内容 → 技术路线
+
+python skill_manager.py recommend 帮我模拟审稿
+# → 推荐：nature-reviewer（模拟 3 位审稿人）
 ```
 
 ---
 
-## 💬 支持的自然语言
+## 💬 自然语言触发
 
-安装后，在任何支持的 Agent 中直接说：
+安装后，在任何支持的 AI Agent 中直接说中文：
 
-- "帮我审这篇稿子" → nature-reviewer + academic-paper-reviewer
-- "帮我画 Nature 风格的图" → nature-figure
-- "帮我写国自然立项依据" → fund-background-writer
-- "帮我润色到 Nature 水准" → nature-polishing
-- "帮我降 AIGC 率" → paper-spine-humanize
-- "帮我做学术海报" → posterskill-academic-posters
-- "审查我的 MATLAB 代码" → code-reviewer
+| 你说 | 触发的 Skill |
+|------|-------------|
+| "帮我审这篇稿子" | nature-reviewer |
+| "帮我画 Nature 风格的图" | nature-figure |
+| "帮我写国自然立项依据" | fund-background-writer |
+| "帮我润色到 Nature 水准" | nature-polishing |
+| "帮我降 AIGC 率" | paper-spine-humanize |
+| "帮我做学术海报" | posterskill-academic-posters |
+| "审查我的代码" | code-reviewer |
+| "帮我写论文" | nature-writing |
+| "帮我做论文PPT" | nature-paper2ppt |
+| "帮我把论文转成专利" | nature-paper-to-patent |
 
 ---
 
@@ -115,12 +131,16 @@ python skill_manager.py remove <名字>   # 删除 skill
 
 ```
 skill-manager/
-├── SKILL.md              ← Agent Skill 定义
+├── SKILL.md              ← Agent Skill 定义（AI 直接读取）
 ├── scripts/
-│   └── skill_manager.py  ← 核心管理脚本
-├── setup.ps1             ← Windows 一键安装（含依赖自动检测）
-├── setup.sh              ← macOS/Linux 一键安装（含依赖自动检测）
-├── install_all.ps1       ← Windows 批量安装（setup 自动调用）
+│   └── skill_manager.py  ← 核心管理脚本 (v2.1)
+├── setup.ps1             ← Windows 安装（含自动依赖安装）
+├── setup.sh              ← macOS/Linux 安装（含 Homebrew 自动安装）
+├── install_all.ps1       ← Windows 批量安装 40 个 skill
+├── install_all.sh        ← macOS/Linux 批量安装 40 个 skill
+├── pyproject.toml        ← Python 项目配置
+├── cover.html            ← 封面页
+├── LICENSE               ← MIT 许可证
 └── README.md
 ```
 
@@ -129,28 +149,49 @@ skill-manager/
 ## 🔄 更新
 
 ### 🤖 AI 一键更新
+
 复制下面这段话发给任意 AI 助手：
 
-> 请帮我更新 skill-manager 及所有 40 个科研 skill：
-> 1. `cd ~/skill-manager-repo && git pull`（如不存在则 git clone）
+> 请帮我更新 skill-manager：
+> 1. `cd skill-manager && git pull`（如不存在则 `git clone https://github.com/stbabaocha/skill-manager.git`）
 > 2. 重新运行安装脚本：Windows 用 `powershell -ExecutionPolicy Bypass -File setup.ps1`，Mac/Linux 用 `bash setup.sh`
-> 3. 运行 `python ~/.agents/skills/skill-manager/scripts/skill_manager.py update -y` 更新所有 skill
 
 ### 🖥️ 手动更新
 
 ```bash
-# 更新管理器本身
+cd skill-manager
 git pull
-
-# 更新所有已安装 skill
-python skill_manager.py update -y
-
-# 重新导出配置
-python skill_manager.py export
+# Windows
+powershell -ExecutionPolicy Bypass -File setup.ps1
+# Mac/Linux
+bash setup.sh
 ```
+
+---
+
+## ❌ 卸载
+
+```bash
+# 删除所有已安装的 skill
+rm -rf ~/.agents/skills ~/.claude/skills ~/.codex/skills ~/.continue/skills
+
+# 删除仓库
+rm -rf skill-manager
+```
+
+Windows:
+```powershell
+Remove-Item -Recurse -Force $env:USERPROFILE\.agents\skills, $env:USERPROFILE\.claude\skills
+```
+
+---
+
+## 🤝 贡献
+
+欢迎提 Issue 和 PR！如果你有好用的科研 AI skill，也可以提交给我们集成进来。
 
 ---
 
 ## 📄 License
 
-MIT
+[MIT](LICENSE)

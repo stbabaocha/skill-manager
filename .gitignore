@@ -11,6 +11,7 @@ __pycache__/
 .DS_Store
 Thumbs.db
 
-# Export temp
+# Auto-generated
+_project_context.md
 skill-manager-export/
 skill_manager.egg-info/

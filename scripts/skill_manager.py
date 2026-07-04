@@ -18,7 +18,6 @@ import sys
 import json
 import shutil
 import argparse
-import glob
 from pathlib import Path
 from collections import defaultdict
 
@@ -726,9 +725,236 @@ SKILL_USAGE = {
 }
 
 
+# ── 智能路由/推荐 ──────────────────────────────────────────────
+
+# 预设工作流模板
+WORKFLOW_TEMPLATES = {
+    "论文写作": {
+        "keywords": ["写论文", "论文", "写 paper", "写manuscript", "撰写论文", "write paper", "draft paper", "写稿", "paper", "manuscript"],
+        "steps": [
+            ("nature-academic-search", "文献检索", "帮我搜索 XX 领域的最新文献"),
+            ("nature-citation", "文献引用管理", "给这段文字加上引用"),
+            ("nature-writing", "撰写各部分", "帮我写 Introduction/Methods/Results"),
+            ("nature-figure", "科研配图", "帮我画 Figure 1"),
+            ("nature-polishing", "英文润色", "帮我润色成 Nature 风格英文"),
+            ("nature-data", "数据可用性声明", "帮我写 Data Availability"),
+            ("nature-reviewer", "预审（投稿前自检）", "帮我模拟审稿人审一下"),
+            ("nature-response", "审稿回复", "帮我回复审稿意见"),
+        ],
+    },
+    "基金申请": {
+        "keywords": ["写基金", "NSFC", "国自然", "基金申请", "立项依据", "fund", "grant"],
+        "steps": [
+            ("fund-background-writer", "立项依据/研究意义", "帮我写立项依据"),
+            ("fund-literature-review-writer", "国内外研究现状", "帮我写文献综述部分"),
+            ("fund-research-content-writer", "研究目标/内容/科学问题", "帮我拆解研究内容"),
+            ("fund-technical-route-writer", "研究方法/技术路线/创新特色", "帮我写技术路线"),
+        ],
+    },
+    "论文阅读": {
+        "keywords": ["读论文", "精读", "翻译论文", "论文翻译", "read paper", "paper reading", "文献阅读"],
+        "steps": [
+            ("nature-reader", "精读论文（中英对照）", "帮我精读这篇论文"),
+            ("paper-analyzer", "深度分析长文", "帮我深度分析这篇论文"),
+            ("nature-paper2ppt", "做汇报 PPT", "帮我把这篇论文做成 PPT"),
+        ],
+    },
+    "论文汇报": {
+        "keywords": ["做PPT", "论文汇报", "组会", "学术汇报", "paper presentation", "做幻灯片", "slides"],
+        "steps": [
+            ("nature-reader", "先精读论文", "帮我读懂这篇论文"),
+            ("nature-paper2ppt", "生成 PPT", "帮我做一个组会汇报 PPT"),
+        ],
+    },
+    "审稿模拟": {
+        "keywords": ["审稿", "模拟审稿", "reviewer", "peer review", "预审", "自审"],
+        "steps": [
+            ("nature-reviewer", "模拟审稿人评估", "帮我模拟审稿"),
+        ],
+    },
+    "审稿回复": {
+        "keywords": ["回复审稿", "rebuttal", "revision", "修回", "审稿意见", "response to reviewer"],
+        "steps": [
+            ("nature-response", "逐点回复审稿意见", "帮我回复审稿意见"),
+        ],
+    },
+    "润色": {
+        "keywords": ["润色", "polish", "改写", "语言润色", "英文润色", "proofreading"],
+        "steps": [
+            ("nature-polishing", "学术英文润色", "帮我润色这段文字"),
+        ],
+    },
+    "文献检索": {
+        "keywords": ["找文献", "搜文献", "文献检索", "literature search", "查文献", "找论文"],
+        "steps": [
+            ("nature-academic-search", "多源文献检索", "帮我搜索关于 XX 的文献"),
+            ("nature-citation", "引用管理", "帮我整理引用"),
+            ("nature-literature-pipeline", "自动文献发现", "帮我建立文献自动追踪"),
+        ],
+    },
+    "科研配图": {
+        "keywords": ["画图", "绘图", "配图", "figure", "plot", "可视化", "作图"],
+        "steps": [
+            ("nature-figure", "期刊级科研配图", "帮我画一个 XX 图"),
+            ("paper-comic", "论文方法图解", "帮我用图解说明方法"),
+        ],
+    },
+    "论文转专利": {
+        "keywords": ["写专利", "转专利", "patent", "专利申请"],
+        "steps": [
+            ("nature-reader", "读懂论文", "帮我读懂这篇论文的方法"),
+            ("nature-paper-to-patent", "转化为专利", "帮我把论文转成专利申请书"),
+        ],
+    },
+    "代码审查": {
+        "keywords": ["review code", "代码审查", "code review", "审查代码", "PR review"],
+        "steps": [
+            ("code-reviewer", "代码审查", "帮我审查这段代码"),
+        ],
+    },
+}
+
+
+def cmd_recommend(query: str):
+    """根据用户需求推荐 skill 工作流"""
+    query_lower = query.lower()
+
+    # 1. 匹配预设工作流
+    # 去掉空格后也匹配（"写 paper" → "写paper"）
+    query_nospace = query_lower.replace(" ", "")
+    matched_workflows = []
+    for wf_name, wf in WORKFLOW_TEMPLATES.items():
+        score = 0
+        for kw in wf["keywords"]:
+            kw_lower = kw.lower()
+            kw_nospace = kw_lower.replace(" ", "")
+            # 子字符串匹配（双向）
+            if kw_lower in query_lower or kw_nospace in query_nospace:
+                score += 2
+            # 也尝试逐词匹配
+            elif any(w in query_lower for w in kw_lower.split() if len(w) >= 2):
+                score += 1
+        # 工作流名本身也作为关键词
+        if wf_name in query_lower or wf_name.replace(" ", "") in query_nospace:
+            score += 3
+        if score > 0:
+            matched_workflows.append((score, wf_name, wf))
+
+    matched_workflows.sort(key=lambda x: -x[0])
+
+    if matched_workflows:
+        print(f"\n{'='*60}")
+        print(f"  🧭 Skill Router — 为你的需求推荐工作流")
+        print(f"{'='*60}")
+        print(f"\n  📝 你的需求: {query}\n")
+
+        for i, (score, wf_name, wf) in enumerate(matched_workflows[:3]):
+            if i == 0:
+                print(f"  📋 推荐工作流：{wf_name}")
+                print(f"  {'─'*50}")
+            else:
+                print(f"\n  📋 也可参考：{wf_name}")
+                print(f"  {'─'*50}")
+
+            for j, (skill_name, desc, example) in enumerate(wf["steps"], 1):
+                print(f"  步骤 {j}️⃣  → {skill_name}（{desc}）")
+                print(f'         说: "{example}"')
+
+        print(f"\n  💡 你可以从任意步骤开始，直接说对应的中文指令即可")
+        print()
+        return
+
+    # 2. 没匹配到预设模板，搜索所有 skill 的描述
+    skills = discover_all_skills()
+    matches = []
+    for s in skills:
+        desc = _read_skill_description(s["path"])
+        if not desc:
+            continue
+        # 简单关键词匹配
+        desc_lower = desc.lower()
+        name_lower = s["name"].lower()
+        score = 0
+        for word in query_lower.split():
+            if len(word) < 2:
+                continue
+            if word in desc_lower:
+                score += 2
+            if word in name_lower:
+                score += 3
+        if score > 0:
+            matches.append((score, s["name"], desc, s["root"]))
+
+    # 去重
+    seen = set()
+    unique_matches = []
+    for score, name, desc, root in sorted(matches, key=lambda x: -x[0]):
+        if name not in seen:
+            seen.add(name)
+            unique_matches.append((score, name, desc, root))
+
+    if unique_matches:
+        print(f"\n{'='*60}")
+        print(f"  🔍 Skill Search — 相关 Skill")
+        print(f"{'='*60}")
+        print(f"\n  📝 搜索: {query}\n")
+
+        for score, name, desc, root in unique_matches[:10]:
+            short_desc = desc[:80] + "…" if len(desc) > 80 else desc
+            print(f"  ⭐ {name}")
+            print(f"     {short_desc}")
+            print()
+    else:
+        print(f"\n  ❌ 没找到与 \"{query}\" 相关的 skill")
+        print(f"  💡 试试: python skill_manager.py list --unique  查看所有 skill")
+
+
+def cmd_sync_all(yes: bool = False, force: bool = False):
+    """一键同步所有 skill 到所有平台"""
+    src_root = "agents"  # 以 agents 为主源
+    src_dir = SKILL_ROOTS[src_root]["path"]
+
+    if not src_dir.exists():
+        print(f"❌ 主源目录不存在: {src_dir}")
+        return
+
+    targets = ["claude", "codex", "openclaw", "continue"]
+    total_synced = 0
+
+    for dst_root in targets:
+        dst_dir = SKILL_ROOTS[dst_root]["path"]
+        dst_dir.mkdir(parents=True, exist_ok=True)
+        synced = 0
+
+        for item in sorted(src_dir.iterdir()):
+            if not item.is_dir() or item.name.startswith("."):
+                continue
+            dst_item = dst_dir / item.name
+            if dst_item.exists() and not force:
+                continue
+            if not yes:
+                action = "Overwrite" if dst_item.exists() else "Copy"
+                resp = input(f"{action} {item.name} → {dst_root}? [y/N] ")
+                if resp.lower() != "y":
+                    continue
+            if dst_item.exists():
+                shutil.rmtree(dst_item)
+            shutil.copytree(item, dst_item)
+            synced += 1
+
+        if synced:
+            print(f"  ✅ {dst_root}: {synced} 个 skill 同步完成")
+        total_synced += synced
+
+    if total_synced == 0:
+        print("所有平台已是最新。用 --force 强制覆盖。")
+    else:
+        print(f"\n总计同步 {total_synced} 个 skill")
+
+
 def main():
     parser = argparse.ArgumentParser(
-        description="Skill Manager v2.0 — 统一管理所有平台的 Agent Skills",
+        description="Skill Manager v2.1 — 统一管理所有平台的 Agent Skills",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 示例:
@@ -767,6 +993,13 @@ def main():
     sub.add_parser("doctor", help="健康诊断")
     sub.add_parser("duplicates", help="列出跨平台重复的 skill")
 
+    rec = sub.add_parser("recommend", help="⭐ 根据需求推荐 skill 工作流")
+    rec.add_argument("query", nargs="+", help="描述你想做什么")
+
+    sa = sub.add_parser("sync-all", help="一键同步 agents → 所有平台")
+    sa.add_argument("--yes", "-y", action="store_true")
+    sa.add_argument("--force", "-f", action="store_true")
+
     args = parser.parse_args()
 
     if args.command == "list":
@@ -789,6 +1022,10 @@ def main():
         cmd_doctor()
     elif args.command == "duplicates":
         cmd_duplicates()
+    elif args.command == "recommend":
+        cmd_recommend(" ".join(args.query))
+    elif args.command == "sync-all":
+        cmd_sync_all(yes=args.yes, force=getattr(args, "force", False))
     else:
         parser.print_help()
 
